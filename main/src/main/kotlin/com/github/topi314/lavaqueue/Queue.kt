@@ -46,11 +46,21 @@ class Queue(
         return null
     }
 
+    fun preloadNextTrack() {
+        if (tracks.isNotEmpty()) {
+            val nextTrack = tracks.next()
+            player.audioPlayer.startTrack(nextTrack?.makeClone(), true) // Load but don't play
+        }
+    }
+
     override fun onTrackEnd(unused: AudioPlayer, track: AudioTrack, endReason: AudioTrackEndReason) {
         history.add(track.makeClone())
         if (endReason.mayStartNext) {
             val nextTrack = when (mode) {
-                Queue.Mode.NORMAL -> next()
+                Queue.Mode.NORMAL -> {
+                    player.audioPlayer.startTrack(player.audioPlayer.playingTrack, false) // Start the preloaded track
+                    preloadNextTrack() // Preload the next one
+                }
                 Queue.Mode.REPEAT_TRACK -> {
                     val nextTrack = track.makeClone()
                     player.play(nextTrack)
@@ -62,7 +72,7 @@ class Queue(
                     next()
                 }
             }
-            if (nextTrack == null) {
+            if (player.audioPlayer.playingTrack == null) {
                 context.sendMessage(QueueEndEvent.serializer(), QueueEndEvent(player.guildId.toString()))
             }
         }
